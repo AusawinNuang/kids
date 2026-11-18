@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ตัวจัดการและดาวน์โหลดรูปโลโก้ช่อง AIS Play (95 ช่อง)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #151f32;
+      --surface-elevated: #1e293b;
+      --border: #2e3c54;
+      --ink: #f8fafc;
+      --muted: #94a3b8;
+      --brand: #3b82f6;
+      --brand-hover: #2563eb;
+      --brand-ink: #ffffff;
+      --accent: #06b6d4;
+      --success: #10b981;
+      --success-hover: #059669;
+      --warning: #f59e0b;
+      --radius: 12px;
+      --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Thai", Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .header-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: var(--space-4) var(--space-6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand-ink);
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .brand-subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    .card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--space-6);
+    }
+
+    .guide-banner {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(6, 182, 212, 0.1));
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: var(--radius);
+      padding: var(--space-4) var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .guide-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .guide-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .step-item {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: var(--space-3) var(--space-4);
+      font-size: 0.875rem;
+      color: var(--ink);
+    }
+
+    .step-badge {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+
+    .step-item p {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 240px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background-color: var(--bg);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.92rem;
+      transition: border-color 0.15s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .btn {
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background-color: var(--brand);
+      color: var(--brand-ink);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--brand-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-success {
+      background-color: var(--success);
+      color: #ffffff;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background-color: var(--success-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background-color: var(--surface-elevated);
+      color: var(--ink);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #293850;
+      border-color: var(--muted);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status-bar {
+      margin-top: var(--space-3);
+      padding: 10px 14px;
+      border-radius: 8px;
+      background-color: var(--bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      font-size: 0.875rem;
+    }
+
+    .status-text {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .count-text {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .script-panel {
+      display: none;
+      margin-top: var(--space-4);
+      background-color: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: var(--space-4);
+    }
+
+    .script-panel.visible {
+      display: block;
+    }
+
+    .script-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .script-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #fbbf24;
+    }
+
+    .script-textarea {
+      width: 100%;
+      height: 190px;
+      background: #070b14;
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: var(--space-3);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .logo-card {
+      background-color: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--space-2);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .logo-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--brand);
+    }
+
+    .logo-preview-wrap {
+      width: 104px;
+      height: 104px;
+      background-color: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      overflow: hidden;
+    }
+
+    .logo-preview-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .logo-index-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .logo-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .logo-meta {
+      font-size: 0.74rem;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      word-break: break-all;
+    }
+
+    .card-actions {
+      margin-top: auto;
+      padding-top: var(--space-2);
+      width: 100%;
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-sm {
+      flex: 1;
+      padding: 7px 10px;
+      font-size: 0.76rem;
+      border-radius: 8px;
+      justify-content: center;
+    }
+
+    .table-wrapper {
+      display: none;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background-color: var(--surface);
+    }
+
+    .table-wrapper.visible {
+      display: block;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    th {
+      background-color: var(--surface-elevated);
+      color: var(--muted);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover {
+      color: var(--ink);
+    }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background-color: rgba(59, 130, 246, 0.06);
+    }
+
+    .num-col {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      width: 70px;
+    }
+
+    .table-thumb {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px;
+      display: block;
+    }
+
+    .url-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      color: #93c5fd;
+      word-break: break-all;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: var(--space-8);
+      text-align: center;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+  </style>
+<style data-link-removed-style>a[data-link-removed],a[href*="zPythonSafez"]:not([onclick]){pointer-events:none!important;cursor:default!important;opacity:.6}</style></head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">ตัวช่วยดาวน์โหลดรูปโลโก้ช่อง AIS Play (`aisplay.txt`)</h1>
+          <div class="brand-subtitle">แสดงรายการโลโก้ทั้งหมด 95 ช่อง (86 ไฟล์ภาพไม่ซ้ำ) พร้อมเครื่องมือดาวน์โหลด</div>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn btn-secondary" id="toggle-view-btn" onclick="toggleViewMode()">
+          📋 สลับเป็นมุมมองตาราง
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="toggleScriptPanel()">
+          💻 โค้ด PowerShell โหลดลงคอม (1-Click)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="guide-banner" aria-label="วิธีใช้งานการดาวน์โหลดรูปภาพ">
+      <div class="guide-title">
+        <span>💡 วิธีใช้งานเพื่อดาวน์โหลดรูปภาพทั้ง 95 ช่อง</span>
+      </div>
+      <div class="guide-steps">
+        <div class="step-item">
+          <span class="step-badge">วิธีที่ 1: ดาวน์โหลดไฟล์แอปนี้ไปเปิดบนคอม</span>
+          <div>กดปุ่มไอคอน <strong>Download (⬇️)</strong> บนแถบมุมขวาบนของกรอบ Canvas นี้เพื่อบันทึกเป็นไฟล์ <code>index.html</code> ลงเครื่อง แล้วดับเบิลคลิกเปิดในเบราว์เซอร์เพื่อกดปุ่มรวมไฟล์ <strong>.ZIP</strong> หรือกดบันทึกรูปได้เลย</div>
+        </div>
+        <div class="step-item">
+          <span class="step-badge">วิธีที่ 2: บันทึกแยกทีละรูปทันที</span>
+          <div>เลื่อนดูโลโก้ช่องที่ต้องการด้านล่าง แล้ว<strong>คลิกขวาที่รูปโลโก้ -> เลือก "บันทึกรูปภาพเป็น..." (Save image as...)</strong> หรือกดปุ่มคัดลอกลิงก์ของช่องนั้น</div>
+        </div>
+        <div class="step-item">
+          <span class="step-badge">วิธีที่ 3: โหลดครบ 95 รูปด้วย PowerShell (ไม่ติด CORS)</span>
+          <div>หากเซิร์ฟเวอร์ AIS บล็อกการแพ็ก ZIP ข้ามโดเมน ให้กดปุ่ม <strong>"💻 โค้ด PowerShell โหลดลงคอม"</strong> ด้านบนเพื่อคัดลอกคำสั่งไปรันใน Windows PowerShell รูปทั้ง 95 ช่องจะถูกตั้งชื่อภาษาไทยลงโฟลเดอร์ทันที</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="แถบเครื่องมือค้นหาและดาวน์โหลด">
+      <div class="toolbar">
+        <div class="search-box">
+          <input type="text" id="search-input" class="search-input" placeholder="ค้นหาชื่อช่องภาษาไทย, รหัสช่อง (tvg-id), หรือชื่อไฟล์ .png..." aria-label="ค้นหาชื่อช่อง">
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-primary" id="zip-thai-btn" onclick="downloadAllAsZip(true)">
+            📦 ดาวน์โหลดทั้งหมดเป็น .ZIP (ชื่อช่องภาษาไทย)
+          </button>
+          <button type="button" class="btn btn-success" id="zip-orig-btn" onclick="downloadAllAsZip(false)">
+            📦 ดาวน์โหลดเป็น .ZIP (ชื่อไฟล์ต้นฉบับ 86 รูป)
+          </button>
+          <button type="button" class="btn btn-secondary" id="copy-urls-btn" onclick="copyAllUrls()">
+            🔗 คัดลอกลิงก์รูปทั้งหมด
+          </button>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-text" id="status-msg">พร้อมใช้งาน — คลิกขวาที่รูปเพื่อบันทึก หรือกดปุ่มดาวน์โหลดด้านบน</div>
+        <div class="count-text" id="count-msg">แสดง 95 จาก 95 ช่อง</div>
+      </div>
+
+      <div class="script-panel" id="script-panel">
+        <div class="script-header">
+          <span class="script-title">⚡ สคริปต์ Windows PowerShell (ดาวน์โหลดครบ 95 ช่อง พร้อมตั้งชื่อไฟล์ภาษาไทยอัตโนมัติ)</span>
+          <button type="button" class="btn btn-primary btn-sm" style="flex:0;" onclick="copyPowerShellScript(this)">📋 คัดลอกสคริปต์ PowerShell</button>
+        </div>
+        <textarea id="ps-textarea" class="script-textarea" readonly></textarea>
+      </div>
+    </section>
+
+    <section id="grid-container" class="logo-grid" aria-label="ตารางแสดงการ์ดโลโก้ช่อง"></section>
+
+    <section id="table-container" class="table-wrapper" aria-label="ตารางข้อมูลโลโก้ช่อง">
+      <table>
+        <thead>
+          <tr>
+            <th class="num-col" onclick="setSort('index')">ลำดับ <span id="sort-index">▲</span></th>
+            <th>โลโก้</th>
+            <th onclick="setSort('channel_name')">ชื่อช่องรายการ <span id="sort-channel_name"></span></th>
+            <th onclick="setSort('safe_filename')">ชื่อไฟล์ภาษาไทย <span id="sort-safe_filename"></span></th>
+            <th onclick="setSort('orig_filename')">ชื่อไฟล์ต้นฉบับ <span id="sort-orig_filename"></span></th>
+            <th>ลิงก์รูปภาพ (URL)</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script id="app-data" type="application/json">[{"index": 1, "tvg_id": "ch0000000000100001041", "channel_name": "เอ็นบีที 2 เอชดี", "safe_filename": "01_เอ็นบีที 2 เอชดี.png", "orig_filename": "20250716132546006600.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 2, "tvg_id": "ch0000000000100001042", "channel_name": "ไทยพีบีเอส เอชดี", "safe_filename": "02_ไทยพีบีเอส เอชดี.png", "orig_filename": "20250716132617006744.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 3, "tvg_id": "ch0000000000100001124", "channel_name": "5 เอชดี", "safe_filename": "03_5 เอชดี.png", "orig_filename": "20250716132701006689.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 4, "tvg_id": "ch0000000000100001043", "channel_name": "ทีสปอร์ต 7", "safe_filename": "04_ทีสปอร์ต 7.png", "orig_filename": "20250611173728006781.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 5, "tvg_id": "ch0000000000100001121", "channel_name": "สถานีวิทยุโทรทัศน์รัฐสภา", "safe_filename": "05_สถานีวิทยุโทรทัศน์รัฐสภา.png", "orig_filename": "20250716135946006791.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 6, "tvg_id": "ch0000000000100001122", "channel_name": "ทีเอ็นเอ็น", "safe_filename": "06_ทีเอ็นเอ็น.png", "orig_filename": "20250716135508006746.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 7, "tvg_id": "ch0000000000100001125", "channel_name": "เนชั่น ชาแนล", "safe_filename": "07_เนชั่น ชาแนล.png", "orig_filename": "20250716101724006718.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 8, "tvg_id": "ch0000000000100001131", "channel_name": "เวิร์คพอยท์", "safe_filename": "08_เวิร์คพอยท์.png", "orig_filename": "20260915132355006624.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 9, "tvg_id": "ch0000000000100001141", "channel_name": "ทรูโฟร์ยู", "safe_filename": "09_ทรูโฟร์ยู.png", "orig_filename": "20250716140038006620.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 10, "tvg_id": "ch0000000000100001462", "channel_name": "จีเอ็มเอ็ม 25", "safe_filename": "10_จีเอ็มเอ็ม 25.png", "orig_filename": "20250718132043006777.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 11, "tvg_id": "ch0000000000100001161", "channel_name": "ช่อง 8", "safe_filename": "11_ช่อง 8.png", "orig_filename": "20260227093922042823.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 12, "tvg_id": "ch0000000000100001941", "channel_name": "โมโนแมกซ์ สปอร์ตส์", "safe_filename": "12_โมโนแมกซ์ สปอร์ตส์.png", "orig_filename": "20260602150518056173.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 13, "tvg_id": "ch0000000000100001163", "channel_name": "เอ็มคอท เอชดี 30", "safe_filename": "13_เอ็มคอท เอชดี 30.png", "orig_filename": "20250716132926006776.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 14, "tvg_id": "ch0000000000100001164", "channel_name": "วัน เอชดี 31", "safe_filename": "14_วัน เอชดี 31.png", "orig_filename": "20250718131942006775.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 15, "tvg_id": "ch0000000000100001165", "channel_name": "ไทยรัฐทีวี เอชดี", "safe_filename": "15_ไทยรัฐทีวี เอชดี.png", "orig_filename": "20250716135449006774.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 16, "tvg_id": "ch0000000000100001166", "channel_name": "3 เอชดี", "safe_filename": "16_3 เอชดี.png", "orig_filename": "20250718132008006594.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 17, "tvg_id": "ch0000000000100001167", "channel_name": "อมรินทร์ ทีวี เอชดี", "safe_filename": "17_อมรินทร์ ทีวี เอชดี.png", "orig_filename": "20250716133045006544.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 18, "tvg_id": "ch0000000000100001168", "channel_name": "7 เอชดี", "safe_filename": "18_7 เอชดี.png", "orig_filename": "20250716133132006704.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 19, "tvg_id": "ch0000000000100001171", "channel_name": "พีพีทีวี เอชดี", "safe_filename": "19_พีพีทีวี เอชดี.png", "orig_filename": "20251224100714006705.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 20, "tvg_id": "ch0000000000100001044", "channel_name": "เอชบีโอ", "safe_filename": "20_เอชบีโอ.png", "orig_filename": "20250716134712006706.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 21, "tvg_id": "ch0000000000100001021", "channel_name": "เอชบีโอ ซิกเนเจอร์", "safe_filename": "21_เอชบีโอ ซิกเนเจอร์.png", "orig_filename": "20250716134720006707.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 22, "tvg_id": "ch0000000000100001091", "channel_name": "เอชบีโอ ฮิตส์", "safe_filename": "22_เอชบีโอ ฮิตส์.png", "orig_filename": "20250716134739006530.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 23, "tvg_id": "ch0000000000100001092", "channel_name": "เอชบีโอ แฟมิลี", "safe_filename": "23_เอชบีโอ แฟมิลี.png", "orig_filename": "20250716134747006583.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 24, "tvg_id": "ch0000000000100001071", "channel_name": "ซิเนแม็กซ์", "safe_filename": "24_ซิเนแม็กซ์.png", "orig_filename": "20250716134649006712.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 25, "tvg_id": "ch0000000000100001081", "channel_name": "เอเชียน ฮิตส์", "safe_filename": "25_เอเชียน ฮิตส์.png", "orig_filename": "20250716134635006505.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 26, "tvg_id": "ch0000000000100001062", "channel_name": "วอร์เนอร์ ทีวี", "safe_filename": "26_วอร์เนอร์ ทีวี.png", "orig_filename": "20250716135125006722.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 27, "tvg_id": "ch0000000000100001093", "channel_name": "โมโน29 พลัส", "safe_filename": "27_โมโน29 พลัส.png", "orig_filename": "20250716135043006586.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 28, "tvg_id": "ch0000000000100001073", "channel_name": "ร็อค แอ็กชัน", "safe_filename": "28_ร็อค แอ็กชัน.png", "orig_filename": "20250716135107006734.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 29, "tvg_id": "ch0000000000100001101", "channel_name": "ร็อค เอ็นเตอร์เทนเม้น", "safe_filename": "29_ร็อค เอ็นเตอร์เทนเม้น.png", "orig_filename": "20261118142210006742.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 30, "tvg_id": "ch0000000000100001111", "channel_name": "การ์ตูนเน็ตเวิร์ค", "safe_filename": "30_การ์ตูนเน็ตเวิร์ค.png", "orig_filename": "20250716134513006646.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 31, "tvg_id": "ch0000000000100001169", "channel_name": "การ์ตูนิโต", "safe_filename": "31_การ์ตูนิโต.png", "orig_filename": "20250716134525006735.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 32, "tvg_id": "ch0000000000100001170", "channel_name": "นิคโคโลเดียน", "safe_filename": "32_นิคโคโลเดียน.png", "orig_filename": "20250716134558006743.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 33, "tvg_id": "ch0000000000100001181", "channel_name": "นิคจูเนียร์", "safe_filename": "33_นิคจูเนียร์.png", "orig_filename": "20250716134614006738.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 34, "tvg_id": "ch0000000000100001182", "channel_name": "บูมเมอแรง", "safe_filename": "34_บูมเมอแรง.png", "orig_filename": "20250716134435006599.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 35, "tvg_id": "ch0000000000100002601", "channel_name": "แมงโก้ โมฮิโต้", "safe_filename": "35_แมงโก้ โมฮิโต้.png", "orig_filename": "20260401133808044641.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 36, "tvg_id": "ch0000000000100001191", "channel_name": "ฟู้ดเน็ตเวิร์ค", "safe_filename": "36_ฟู้ดเน็ตเวิร์ค.png", "orig_filename": "20250716132733006506.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 37, "tvg_id": "ch0000000000100001331", "channel_name": "เอเชี่ยน ฟู้ด เน็ตเวิร์ค", "safe_filename": "37_เอเชี่ยน ฟู้ด เน็ตเวิร์ค.png", "orig_filename": "20250716132625006739.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 38, "tvg_id": "ch0000000000100001192", "channel_name": "ทีแอลซี", "safe_filename": "38_ทีแอลซี.png", "orig_filename": "20260930120630006662.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 39, "tvg_id": "ch0000000000100001183", "channel_name": "โมโน29 มิวสิค สเตชัน", "safe_filename": "39_โมโน29 มิวสิค สเตชัน.png", "orig_filename": "20250718132608006772.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 40, "tvg_id": "ch0000000000100001184", "channel_name": "ของดีประเทศไทย", "safe_filename": "40_ของดีประเทศไทย.png", "orig_filename": "20250716132819006619.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 41, "tvg_id": "ch0000000000100001891", "channel_name": "ไทยเนส", "safe_filename": "41_ไทยเนส.png", "orig_filename": "20250716133116006771.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 42, "tvg_id": "ch0000000000100001193", "channel_name": "เตเวแซ็งก์มงด์", "safe_filename": "42_เตเวแซ็งก์มงด์.png", "orig_filename": "20250718132739006740.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 43, "tvg_id": "ch0000000000100001358", "channel_name": "อารีรัง", "safe_filename": "43_อารีรัง.png", "orig_filename": "20250716101829006643.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 44, "tvg_id": "ch0000000000100001187", "channel_name": "ดิสคัฟเวอรี่", "safe_filename": "44_ดิสคัฟเวอรี่.png", "orig_filename": "20250716135206006737.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 45, "tvg_id": "ch0000000000100001901", "channel_name": "สำรวจโลก", "safe_filename": "45_สำรวจโลก.png", "orig_filename": "20250716135242006736.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 46, "tvg_id": "ch0000000000100001911", "channel_name": "แอนิมอล โชว์", "safe_filename": "46_แอนิมอล โชว์.png", "orig_filename": "20250716135154006635.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 47, "tvg_id": "ch0000000000100001190", "channel_name": "สารคดีรัสเซีย", "safe_filename": "47_สารคดีรัสเซีย.png", "orig_filename": "20250716135234006618.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 48, "tvg_id": "ch0000000000100001201", "channel_name": "มายไซน์", "safe_filename": "48_มายไซน์.png", "orig_filename": "20250716135217006617.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 49, "tvg_id": "ch0000000000100001237", "channel_name": "ซีเอ็นเอ็น", "safe_filename": "49_ซีเอ็นเอ็น.png", "orig_filename": "20250716133554006699.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 50, "tvg_id": "ch0000000000100001151", "channel_name": "บีบีซี นิวส์", "safe_filename": "50_บีบีซี นิวส์.png", "orig_filename": "20250716133317006529.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 51, "tvg_id": "ch0000000000100001841", "channel_name": "ฟ๊อกซ์ นิวส์", "safe_filename": "51_ฟ๊อกซ์ นิวส์.png", "orig_filename": "20250717150825012452.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 52, "tvg_id": "ch0000000000100002011", "channel_name": "ฟอกซ์ บิสสิเนส", "safe_filename": "52_ฟอกซ์ บิสสิเนส.png", "orig_filename": "20250717155016016166.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 53, "tvg_id": "ch0000000000100001992", "channel_name": "บลูมเบิร์ก เทเลวิชัน", "safe_filename": "53_บลูมเบิร์ก เทเลวิชัน.png", "orig_filename": "20250717155818016167.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 54, "tvg_id": "ch0000000000100001244", "channel_name": "ชาแนลนิวส์เอเชีย", "safe_filename": "54_ชาแนลนิวส์เอเชีย.png", "orig_filename": "20250716133541006698.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 55, "tvg_id": "ch0000000000100001238", "channel_name": "เอ็นเอชเค เวิลด์ ทีวี", "safe_filename": "55_เอ็นเอชเค เวิลด์ ทีวี.png", "orig_filename": "20250716133716006697.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 56, "tvg_id": "ch0000000000100001904", "channel_name": "ซีซีทีวี 4", "safe_filename": "56_ซีซีทีวี 4.png", "orig_filename": "20250716133402006696.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 57, "tvg_id": "ch0000000000100001354", "channel_name": "ซีจีทีเอ็น", "safe_filename": "57_ซีจีทีเอ็น.png", "orig_filename": "20250716133441006695.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 58, "tvg_id": "ch0000000000100001355", "channel_name": "ข่าวทีวีบีเอส", "safe_filename": "58_ข่าวทีวีบีเอส.png", "orig_filename": "20250716133745006694.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 59, "tvg_id": "ch0000000000100001351", "channel_name": "อัลจาซีรา", "safe_filename": "59_อัลจาซีรา.png", "orig_filename": "20250716102854006504.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 60, "tvg_id": "ch0000000000100001352", "channel_name": "รัสเซียชาแนล", "safe_filename": "60_รัสเซียชาแนล.png", "orig_filename": "20250716133733006693.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 61, "tvg_id": "ch0000000000100001903", "channel_name": "ดีดับบิว", "safe_filename": "61_ดีดับบิว.png", "orig_filename": "20250716133612006593.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 62, "tvg_id": "ch0000000000100001905", "channel_name": "ยูโร นิวส์", "safe_filename": "62_ยูโร นิวส์.png", "orig_filename": "20250716205543006603.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 63, "tvg_id": "ch0000000000100001357", "channel_name": "ฟร้องซ์ 24", "safe_filename": "63_ฟร้องซ์ 24.png", "orig_filename": "20250716133655006692.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 64, "tvg_id": "ch0000000000100001360", "channel_name": "ท็อปนิวส์", "safe_filename": "64_ท็อปนิวส์.png", "orig_filename": "20250716135533006616.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 65, "tvg_id": "ch0000000000100001401", "channel_name": "นิวส์1", "safe_filename": "65_นิวส์1.png", "orig_filename": "20250716133209006691.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 66, "tvg_id": "ch0000000000100002171", "channel_name": "แมนเชสเตอร์ยูไนเต็ด ทีวี", "safe_filename": "66_แมนเชสเตอร์ยูไนเต็ด ทีวี.png", "orig_filename": "20250814101231019501.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 67, "tvg_id": "ch0000000000100002181", "channel_name": "เรอัล มาดริด ทีวี", "safe_filename": "67_เรอัล มาดริด ทีวี.png", "orig_filename": "20250814102145019502.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 68, "tvg_id": "ch0000000000100002701", "channel_name": "เพลย์สปอร์ต บุนเดสลีกา 521", "safe_filename": "68_เพลย์สปอร์ต บุนเดสลีกา 521.png", "orig_filename": "20261116130540088667.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 69, "tvg_id": "ch0000000000100002401", "channel_name": "เพลย์สปอร์ต บาสเกตบอล 551", "safe_filename": "69_เพลย์สปอร์ต บาสเกตบอล 551.png", "orig_filename": "20261116104324088609.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 70, "tvg_id": "ch0000000000100002402", "channel_name": "เพลย์สปอร์ต บาสเกตบอล 552", "safe_filename": "70_เพลย์สปอร์ต บาสเกตบอล 552.png", "orig_filename": "20261116104324088609.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 71, "tvg_id": "ch0000000000100002191", "channel_name": "เพลย์สปอร์ต เอ็นเอฟแอล 556", "safe_filename": "71_เพลย์สปอร์ต เอ็นเอฟแอล 556.png", "orig_filename": "20261116103111088651.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 72, "tvg_id": "ch0000000000100002511", "channel_name": "เพลย์สปอร์ต พีจีเอ ทัวร์ 561", "safe_filename": "72_เพลย์สปอร์ต พีจีเอ ทัวร์ 561.png", "orig_filename": "20261116105118088661.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 73, "tvg_id": "ch0000000000100002525", "channel_name": "เพลย์สปอร์ต แอลพีจีเอ ทัวร์ 566", "safe_filename": "73_เพลย์สปอร์ต แอลพีจีเอ ทัวร์ 566.png", "orig_filename": "20261116105738088662.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 74, "tvg_id": "ch0000000000100002528", "channel_name": "เพลย์สปอร์ต ดีพี เวิลด์ ทัวร์ 569", "safe_filename": "74_เพลย์สปอร์ต ดีพี เวิลด์ ทัวร์ 569.png", "orig_filename": "20261116110237088663.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 75, "tvg_id": "ch0000000000100001212", "channel_name": "กอล์ฟพลัส", "safe_filename": "75_กอล์ฟพลัส.png", "orig_filename": "20251231235118035025.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 76, "tvg_id": "ch0000000000100002530", "channel_name": "เพลย์สปอร์ต เอทีพี ทัวร์ 581", "safe_filename": "76_เพลย์สปอร์ต เอทีพี ทัวร์ 581.png", "orig_filename": "20261116142923088678.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 77, "tvg_id": "ch0000000000100002561", "channel_name": "พรีเมียร์ สปอร์ต", "safe_filename": "77_พรีเมียร์ สปอร์ต.png", "orig_filename": "20260127140505037927.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 78, "tvg_id": "ch0000000000100001772", "channel_name": "ดับเบิ้ลยูสปอร์ต", "safe_filename": "78_ดับเบิ้ลยูสปอร์ต.png", "orig_filename": "20250717135007006041.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 79, "tvg_id": "ch0000000000100001751", "channel_name": "ยูโรสปอร์ต", "safe_filename": "79_ยูโรสปอร์ต.png", "orig_filename": "20250717161338006023.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 80, "tvg_id": "ch0000000000100002261", "channel_name": "เพลย์สปอร์ต ราชดำเนิน 650", "safe_filename": "80_เพลย์สปอร์ต ราชดำเนิน 650.png", "orig_filename": "20261117001207088707.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 81, "tvg_id": "ch0000000000100002041", "channel_name": "เพลย์สปอร์ต บอลไทย 651", "safe_filename": "81_เพลย์สปอร์ต บอลไทย 651.png", "orig_filename": "20261116092449018922.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 82, "tvg_id": "ch0000000000100002052", "channel_name": "เพลย์สปอร์ต บอลไทย 652", "safe_filename": "82_เพลย์สปอร์ต บอลไทย 652.png", "orig_filename": "20261116092449018922.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 83, "tvg_id": "ch0000000000100002311", "channel_name": "เพลย์สปอร์ต บอลไทย 661", "safe_filename": "83_เพลย์สปอร์ต บอลไทย 661.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 84, "tvg_id": "ch0000000000100002312", "channel_name": "เพลย์สปอร์ต บอลไทย 662", "safe_filename": "84_เพลย์สปอร์ต บอลไทย 662.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 85, "tvg_id": "ch0000000000100002313", "channel_name": "เพลย์สปอร์ต บอลไทย 663", "safe_filename": "85_เพลย์สปอร์ต บอลไทย 663.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 86, "tvg_id": "ch0000000000100002314", "channel_name": "เพลย์สปอร์ต บอลไทย 664", "safe_filename": "86_เพลย์สปอร์ต บอลไทย 664.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 87, "tvg_id": "ch0000000000100002321", "channel_name": "เพลย์สปอร์ต บอลไทย 665", "safe_filename": "87_เพลย์สปอร์ต บอลไทย 665.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 88, "tvg_id": "ch0000000000100002322", "channel_name": "เพลย์สปอร์ต 16", "safe_filename": "88_เพลย์สปอร์ต 16.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 89, "tvg_id": "ch0000000000100002323", "channel_name": "เพลย์สปอร์ต 17", "safe_filename": "89_เพลย์สปอร์ต 17.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 90, "tvg_id": "ch0000000000100002324", "channel_name": "เพลย์สปอร์ต 18", "safe_filename": "90_เพลย์สปอร์ต 18.png", "orig_filename": "20261116093614088604.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 91, "tvg_id": "ch0000000000100001281", "channel_name": "กศน. (อีทีวี)", "safe_filename": "91_กศน. (อีทีวี).png", "orig_filename": "20250716133256006672.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 92, "tvg_id": "ch0000000000100001298", "channel_name": "ลั่นทุ่ง ทีวี", "safe_filename": "92_ลั่นทุ่ง ทีวี.png", "orig_filename": "20250716133652006513.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 93, "tvg_id": "ch0000000000100001311", "channel_name": "เอ็มวีทีวี", "safe_filename": "93_เอ็มวีทีวี.png", "orig_filename": "20250716133835006517.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 94, "tvg_id": "ch0000000000100002901", "channel_name": "ดับเบิลยูทีจีแอล 901", "safe_filename": "94_ดับเบิลยูทีจีแอล 901.png", "orig_filename": "20261102084840086158.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}, {"index": 95, "tvg_id": "ch0000000000100002931", "channel_name": "ยูนิเวอร์แซล แบงค็อก โอเพ่น 9 บอล แชมเปียนชิพ 2026", "safe_filename": "95_ยูนิเวอร์แซล แบงค็อก โอเพ่น 9 บอล แชมเปียนชิพ 2026.png", "orig_filename": "20261114125125088265.png", "logo_url": "about:invalid#zPythonSafez", "clean_url": "about:invalid#zPythonSafez"}]</script>
+  <script>
+    const rawData = JSON.parse(document.getElementById('app-data').textContent);
+    const LOGOS = Array.isArray(rawData) ? rawData : [];
+
+    let searchQuery = '';
+    let viewMode = 'grid'; // 'grid' | 'table'
+    let sortKey = 'index';
+    let sortAsc = true;
+
+    const gridContainer = document.getElementById('grid-container');
+    const tableContainer = document.getElementById('table-container');
+    const tableBody = document.getElementById('table-body');
+    const statusMsg = document.getElementById('status-msg');
+    const countMsg = document.getElementById('count-msg');
+    const searchInput = document.getElementById('search-input');
+    const toggleViewBtn = document.getElementById('toggle-view-btn');
+
+    function getFilteredAndSorted() {
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = LOGOS.filter(item => {
+        if (!q) return true;
+        return (
+          String(item.channel_name || '').toLowerCase().includes(q) ||
+          String(item.orig_filename || '').toLowerCase().includes(q) ||
+          String(item.safe_filename || '').toLowerCase().includes(q) ||
+          String(item.tvg_id || '').toLowerCase().includes(q) ||
+          String(item.index || '').includes(q)
+        );
+      });
+
+      filtered.sort((a, b) => {
+        const valA = a[sortKey];
+        const valB = b[sortKey];
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortAsc ? valA - valB : valB - valA;
+        }
+        return sortAsc
+          ? String(valA || '').localeCompare(String(valB || ''), 'th')
+          : String(valB || '').localeCompare(String(valA || ''), 'th');
+      });
+
+      return filtered;
+    }
+
+    function setSort(key) {
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = true;
+      }
+      ['index', 'channel_name', 'safe_filename', 'orig_filename'].forEach(k => {
+        const el = document.getElementById('sort-' + k);
+        if (el) el.textContent = k === sortKey ? (sortAsc ? '▲' : '▼') : '';
+      });
+      render();
+    }
+
+    function toggleViewMode() {
+      viewMode = viewMode === 'grid' ? 'table' : 'grid';
+      if (viewMode === 'grid') {
+        gridContainer.style.display = 'grid';
+        tableContainer.classList.remove('visible');
+        toggleViewBtn.textContent = '📋 สลับเป็นมุมมองตาราง';
+      } else {
+        gridContainer.style.display = 'none';
+        tableContainer.classList.add('visible');
+        toggleViewBtn.textContent = '🖼️ สลับเป็นมุมมองการ์ดรูปภาพ';
+      }
+      render();
+    }
+
+    function toggleScriptPanel() {
+      const panel = document.getElementById('script-panel');
+      panel.classList.toggle('visible');
+    }
+
+    function buildPowerShellScript() {
+      const lines = [
+        '$OutputEncoding = [System.Text.Encoding]::UTF8',
+        '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+        '$folder = "aisplay_logos"',
+        'if (!(Test-Path $folder)) { New-Item -ItemType Directory -Force -Path $folder | Out-Null }',
+        'Write-Host "กำลังดาวน์โหลดรูปโลโก้ช่อง AIS Play ทั้งหมด ' + LOGOS.length + ' ช่อง..." -ForegroundColor Cyan'
+      ];
+      LOGOS.forEach(item => {
+        lines.push(`Write-Host "[${item.index}/${LOGOS.length}] ${item.channel_name} -> ${item.safe_filename}"`);
+        lines.push(`Invoke-WebRequest -Uri "${item.clean_url}" -OutFile "$folder\\${item.safe_filename}" -Headers @{"Referer"="about:invalid#zPythonSafez"; "User-Agent"="Mozilla/5.0"} -ErrorAction SilentlyContinue`);
+      });
+      lines.push('Write-Host "✅ ดาวน์โหลดรูปภาพทั้งหมดเสร็จเรียบร้อย! รูปอยู่ในโฟลเดอร์ aisplay_logos" -ForegroundColor Green');
+      return lines.join('\r\n');
+    }
+
+    function copyPowerShellScript(btnEl) {
+      const text = document.getElementById('ps-textarea').value;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '✅ คัดลอกสคริปต์แล้ว!';
+        statusMsg.textContent = 'คัดลอกสคริปต์ PowerShell แล้ว — เปิดโปรแกรม Windows PowerShell แล้วคลิกขวาวาง (Paste) เพื่อดาวน์โหลดทั้ง 95 รูปได้เลย';
+        setTimeout(() => { btnEl.textContent = orig; }, 2000);
+      }).catch(() => {});
+    }
+
+    function copySingleUrl(url, btnEl) {
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '✅ คัดลอกแล้ว';
+        statusMsg.textContent = 'คัดลอกลิงก์รูปภาพแล้ว: ' + url;
+        setTimeout(() => { btnEl.textContent = orig; }, 1500);
+      }).catch(() => {});
+    }
+
+    function copyAllUrls() {
+      const filtered = getFilteredAndSorted();
+      const text = filtered.map(i => i.clean_url).join('\n');
+      const btn = document.getElementById('copy-urls-btn');
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✅ คัดลอก ' + filtered.length + ' ลิงก์แล้ว';
+        statusMsg.textContent = 'คัดลอกลิงก์รูปภาพจำนวน ' + filtered.length + ' รายการลงคลิปบอร์ดเรียบร้อยแล้ว';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      }).catch(() => {});
+    }
+
+    async function downloadSingleImage(index) {
+      const item = LOGOS.find(x => x.index === index);
+      if (!item) return;
+      statusMsg.textContent = `⏳ กำลังดาวน์โหลดรูปช่อง ${item.channel_name}...`;
+      try {
+        const res = await fetch(item.clean_url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = item.safe_filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        statusMsg.textContent = `✅ บันทึกไฟล์ ${item.safe_filename} สำเร็จ`;
+      } catch (err) {
+        statusMsg.textContent = `ℹ️ หากกดปุ่มในโหมดตัวอย่างไม่ได้ ให้คลิกขวาที่รูปโลโก้ "${item.channel_name}" แล้วเลือก "บันทึกรูปภาพเป็น..." (Save image as...) หรือดาวน์โหลดแอปนี้ไปเปิดบนเบราว์เซอร์หลัก`;
+      }
+    }
+
+    async function downloadAllAsZip(useThaiName) {
+      if (typeof JSZip === 'undefined') {
+        statusMsg.textContent = '⚠️ ไม่พบไลบรารี JSZip กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+        return;
+      }
+      const btnThai = document.getElementById('zip-thai-btn');
+      const btnOrig = document.getElementById('zip-orig-btn');
+      btnThai.disabled = true;
+      btnOrig.disabled = true;
+
+      const zip = new JSZip();
+      let successCount = 0;
+      let failCount = 0;
+      const usedNames = new Set();
+      const targetList = getFilteredAndSorted();
+
+      for (let i = 0; i < targetList.length; i++) {
+        const item = targetList[i];
+        const fileName = useThaiName ? item.safe_filename : item.orig_filename;
+        if (!useThaiName && usedNames.has(fileName)) continue;
+        usedNames.add(fileName);
+
+        statusMsg.textContent = `⏳ กำลังดึงรูปที่ ${i + 1} / ${targetList.length}: ${item.channel_name}...`;
+        try {
+          const res = await fetch(item.clean_url);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          zip.file(fileName, blob);
+          successCount++;
+        } catch (err) {
+          failCount++;
+        }
+      }
+
+      btnThai.disabled = false;
+      btnOrig.disabled = false;
+
+      if (successCount === 0) {
+        statusMsg.textContent = '⚠️ เซิร์ฟเวอร์รูปภาพของ AIS บล็อกการดึงข้ามโดเมน (CORS) บนหน้าเว็บ แนะนำให้กดปุ่ม "💻 โค้ด PowerShell โหลดลงคอม" ด้านบนเพื่อโหลดครบทั้ง 95 รูปในคลิกเดียว หรือคลิกขวาที่รูปเพื่อบันทึกครับ';
+        document.getElementById('script-panel').classList.add('visible');
+        return;
+      }
+
+      statusMsg.textContent = `📦 กำลังบีบอัดไฟล์ ZIP (สำเร็จ ${successCount} รูป)...`;
+      const content = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      a.download = useThaiName ? 'aisplay_logos_thai_names.zip' : 'aisplay_logos_original.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      statusMsg.textContent = `✅ สร้างไฟล์ ZIP เสร็จสมบูรณ์ (${successCount} รูป)! หากอยู่ในโหมดตัวอย่างแล้วไฟล์ไม่เด้ง ให้กดปุ่ม Download (⬇️) มุมขวาบนของกรอบ Canvas เพื่อรันไฟล์นี้บนเบราว์เซอร์หลัก`;
+    }
+
+    function render() {
+      const list = getFilteredAndSorted();
+      countMsg.textContent = `แสดง ${list.length} จาก ${LOGOS.length} ช่อง`;
+
+      if (viewMode === 'grid') {
+        gridContainer.innerHTML = '';
+        if (list.length === 0) {
+          gridContainer.innerHTML = '<div class="empty-state">ไม่พบช่องรายการที่ตรงกับคำค้นหา — ลองล้างคำค้นหา</div>';
+          return;
+        }
+        list.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'logo-card';
+          card.innerHTML = `
+            <span class="logo-index-badge">ช่องที่ ${item.index}</span>
+            <div class="logo-preview-wrap" title="คลิกขวาที่รูปแล้วเลือก 'บันทึกรูปภาพเป็น...' เพื่อบันทึกได้ทันที">
+              <img src="${item.clean_url}" alt="${item.channel_name}" loading="lazy">
+            </div>
+            <div class="logo-name">${item.channel_name}</div>
+            <div class="logo-meta" title="ชื่อไฟล์ต้นฉบับ">${item.orig_filename}</div>
+            <div class="card-actions">
+              <button type="button" class="btn btn-primary btn-sm" onclick="downloadSingleImage(${item.index})">⬇️ บันทึกรูป</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copySingleUrl('${item.clean_url}', this)">🔗 คัดลอก URL</button>
+            </div>
+          `;
+          gridContainer.appendChild(card);
+        });
+      } else {
+        tableBody.innerHTML = '';
+        if (list.length === 0) {
+          tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:32px; color:#94a3b8;">ไม่พบช่องรายการที่ตรงกับคำค้นหา</td></tr>';
+          return;
+        }
+        list.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="num-col">${item.index}</td>
+            <td><img class="table-thumb" src="${item.clean_url}" alt="${item.channel_name}" loading="lazy"></td>
+            <td style="font-weight:700;">${item.channel_name}</td>
+            <td class="url-code" style="color:#34d399;">${item.safe_filename}</td>
+            <td class="url-code" style="color:#94a3b8;">${item.orig_filename}</td>
+            <td class="url-code">${item.clean_url}</td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="downloadSingleImage(${item.index})">⬇️ บันทึก</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copySingleUrl('${item.clean_url}', this)">🔗 คัดลอก</button>
+              </div>
+            </td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value || '';
+      render();
+    });
+
+    document.getElementById('ps-textarea').value = buildPowerShellScript();
+    render();
+  </script>
+</body>
+</html>
